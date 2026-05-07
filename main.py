@@ -1,63 +1,48 @@
-import os
-import time
-import threading
-import requests as req
+import os, time, threading, requests as req
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# CONFIGURAÇÕES
 T = "8782276108:AAGfrEJi-GQS83hIb30cEojbHl9P_1aHgRA"
 C = "@sinais_do_dois_l"
-# Aqui guardamos os IDs das últimas velas para não repetir
 L = []
 
-class ServidorSimples(BaseHTTPRequestHandler):
+class S(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(b"Bot 2L - Monitorando 24h")
-
-def rodar_servidor_web():
-    porta = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', porta), ServidorSimples)
-    server.serve_forever()
+        self.send_response(200); self.end_headers()
+        self.wfile.write(b"ROBO 2L ATIVO")
 
 def send(m):
-    try:
-        url = f"https://api.telegram.org/bot{T}/sendMessage"
-        payload = {"chat_id": C, "text": m, "parse_mode": "Markdown"}
-        req.post(url, json=payload, timeout=10)
-    except:
-        pass
+    try: req.post(f"https://api.telegram.org/bot{T}/sendMessage", json={"chat_id":C, "text":m, "parse_mode":"Markdown"}, timeout=15)
+    except: pass
 
 def monitorar():
-    print("=== MONITOR TURBO 2L ATIVADO ===")
-    U = "https://api.tipminer.com/api/v1/history/sortenabet/aviator"
-    
+    # Testando link alternativo da TipMiner que costuma ser mais aberto
+    U = "https://api.tipminer.com/api/v1/history/sortenabet/aviator?limit=20"
     while True:
         try:
-            res = req.get(U, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
-            if res.status_code == 200:
-                rodadas = res.json().get("data", [])
-                
-                for rd in rodadas[:10]: # Olhamos as 10 mais recentes
-                    v = float(rd.get("multiplier", 0))
-                    # Usamos o ID único da rodada em vez da hora para não ter erro
-                    id_rodada = rd.get("_id") or rd.get("id") or rd.get("created_at")
-                    
-                    if v >= 50.0 and id_rodada not in L:
-                        L.append(id_rodada)
-                        # Mantém a lista limpa
-                        if len(L) > 50: L.pop(0)
-                        
-                        msg = f"🚨 *VELA GIGANTE DETECTADA!*\n\n🎯 *RESULTADO:* {v}x\n⏱ *HORÁRIO:* {rd.get('created_at', '').split(' ')[-1]}\n\n✅ *A 2L OUTLET AVISOU!*"
-                        send(msg)
-                        print(f"Sinal enviado: {v}x")
+            # Adicionei um cabeçalho que simula um navegador real para evitar bloqueios
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+            }
+            r = req.get(U, headers=headers, timeout=20)
             
-            time.sleep(10) # Checa a cada 10 segundos agora!
-        except:
+            if r.status_code == 200:
+                data = r.json().get("data", [])
+                for rd in data:
+                    v = float(rd.get("multiplier", 0))
+                    rid = rd.get("_id") or rd.get("id")
+                    
+                    if v >= 50.0 and rid not in L:
+                        L.append(rid)
+                        if len(L) > 100: L.pop(0)
+                        msg = f"🚨 *ALERTA DE VELA ROSA*\n\n🎯 *RESULTADO:* {v}x\n⏱ *HORA:* {rd.get('created_at','').split(' ')[-1]}\n\n✅ *LOJA 2L OUTLET*"
+                        send(msg)
+            
+            time.sleep(5) # Diminuí para 5 segundos! Agora ele vai "metralhar" a API
+        except Exception as e:
             time.sleep(5)
 
 if __name__ == "__main__":
-    threading.Thread(target=rodar_servidor_web, daemon=True).start()
+    port = int(os.environ.get("PORT", 10000))
+    threading.Thread(target=lambda: HTTPServer(('0.0.0.0', port), S).serve_forever(), daemon=True).start()
     monitorar()
