@@ -27,7 +27,7 @@ def send(m):
         print(f"Erro Telegram: {e}")
 
 def monitorar():
-    print("\n=== MONITOR ATIVO ===")
+    print("\n=== MONITOR INTELIGENTE ATIVO ===")
     U = "https://api.tipminer.com/api/v1/history/sortenabet/aviator"
     H = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 
@@ -40,12 +40,24 @@ def monitorar():
                     h = rd.get("created_at", "").split(" ")[-1]
                     v = float(rd.get("multiplier", 0))
                     
-                    if 50 <= v <= 100 and L["h"] != h:
+                    # Pega qualquer vela a partir de 50x (sem limite máximo de 100x)
+                    if v >= 50.0 and L["h"] != h:
                         L["h"] = h
-                        msg = f"🚨 *VELA GIGANTE!* 🚨\n\n🎯 *VALOR:* {v}x\n⏱ *HORÁRIO:* {h}\n\n🚀 *BUSCAR 50X A 100X*"
+                        
+                        # Análise inteligente para sugerir a próxima possível vela
+                        if v < 100.0:
+                            alvo = "Possível Vela: 50x+"
+                        elif 100.0 <= v < 300.0:
+                            alvo = "Possível Vela: 100x+"
+                        else:
+                            alvo = f"Possível Vela Gigante: {int(v // 100) * 100}x+"
+
+                        msg = f"🚨 *VELA GIGANTE DETECTADA!* 🚨\n\n🎯 *VALOR:* {v}x\n⏱ *HORÁRIO:* {h}\n\n📊 *ANÁLISE DE TENDÊNCIA:*\n🚀 *{alvo}*"
                         send(msg)
+                        print(f"   [!] SINAL DISPARADO: {v}x às {h} ({alvo})")
             time.sleep(25)
-        except:
+        except Exception as e:
+            print(f"Erro na verificação: {e}")
             time.sleep(10)
 
 if __name__ == "__main__":
