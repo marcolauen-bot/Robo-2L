@@ -1,23 +1,55 @@
-cat > teste_bot.py << 'EOF'
+import datetime as dt
+import time
+import threading
 import requests as req
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 T, C = "8782276108:AAGfrEJi-GQS83hIb30cEojbHl9P_1aHgRA", "@sinais_do_dois_l"
+L = {"h": None}
 
-def testar():
-    print("\n=== TESTANDO ENVIO DE SINAL DA 2L ===")
-    msg = "🚀 *SINAL DE TESTE DIRETO DO iSH!*\n\n🎯 *VELA SIMULADA:* 55.00x\n\nSe você recebeu essa mensagem no canal, a comunicação com o Telegram está 100%!"
-    
-    url = f"https://api.telegram.org/bot{T}/sendMessage"
-    try:
-        res = req.post(url, json={"chat_id": C, "text": msg, "parse_mode": "Markdown"}, timeout=10)
-        if res.status_code == 200:
-            print("[✓] SUCESSO! A mensagem chegou no seu canal do Telegram!")
-        else:
-            print(f"[X] ERRO DO TELEGRAM: Status {res.status_code}. Verifique se o Bot é administrador do canal.")
-            print(res.text)
+# --- PARTE DO SERVIDOR WEB PARA O PLANO GRÁTIS DO RENDER ---
+class ServidorSimples(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(b"Robo 2L Ativo!")
+
+def rodar_servidor_web():
+    server = HTTPServer(('0.0.0.0', 10000), ServidorSimples)
+    server.serve_forever()
+
+# --- MONITOR DAS VELAS ---
+def send(m):
+    try: 
+        req.post(f"https://api.telegram.org/bot{T}/sendMessage", json={"chat_id": C, "text": m, "parse_mode": "Markdown"})
     except Exception as e:
-        print(f"[X] ERRO DE CONEXÃO LOCAL: {e}")
+        print(f"Erro Telegram: {e}")
+
+def monitorar():
+    print("\n=== MONITOR ATIVO ===")
+    U = "https://api.tipminer.com/api/v1/history/sortenabet/aviator"
+    H = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+
+    while True:
+        try:
+            res = req.get(U, headers=H, timeout=20)
+            if res.status_code == 200:
+                rodadas = res.json().get("data", [])
+                for rd in reversed(rodadas[:15]):
+                    h = rd.get("created_at", "").split(" ")[-1]
+                    v = float(rd.get("multiplier", 0))
+                    
+                    if 50 <= v <= 100 and L["h"] != h:
+                        L["h"] = h
+                        msg = f"🚨 *VELA GIGANTE!* 🚨\n\n🎯 *VALOR:* {v}x\n⏱ *HORÁRIO:* {h}\n\n🚀 *BUSCAR 50X A 100X*"
+                        send(msg)
+            time.sleep(25)
+        except:
+            time.sleep(10)
 
 if __name__ == "__main__":
-    testar()
-EOF
+    t = threading.Thread(target=rodar_servidor_web)
+    t.daemon = True
+    t.start()
+    monitorar()
